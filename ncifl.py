@@ -25,8 +25,29 @@ def get_points(place, num_fencers=1, novice=False):
         total -= 1
     return total
 
-if __name__ == '__main__':
-    with open('2014/Berkeley.csv', 'rU') as f:
+def sort_dict_by_val(d):
+    return sorted(d.items(), key=lambda x: x[1], reverse=True)
+    #return sorted(d.items(), key=operator.itemgetter(1), reverse=True)
+
+def print_ordered(d):
+    # prints items sorted by value
+    for key in d:
+        print key
+        for item in sort_dict_by_val(d[key]):
+            print item
+        print "\n"
+
+def tournament_points(tournament_file, print_results=False):
+    """
+    {Event1:
+      {school1: points1,
+      school2: points2
+      },
+    Event2: 
+      etc
+    }
+    """
+    with open(tournament_file, 'rU') as f:
         results = [row for row in csv.DictReader(f)]
     num_fencers_by_event = defaultdict(int)
     for result in results:
@@ -45,4 +66,59 @@ if __name__ == '__main__':
             standings_by_event[result['event']][result['club']] = points
     standings = dict(standings)
     standings_by_event = dict(standings_by_event)
-    
+
+    if print_results:
+        print_ordered(standings_by_event)
+
+    return standings_by_event
+
+
+def aggregate_points(tournament_results):
+    """
+    tournament_results is a list of filenames for tournaments to aggregate
+    prints schools and scores by total points from all tournaments
+    """
+    # each of these is a dict of events to dicts of points by school
+    # {Mixed Foil: {SLO: 3, Cal: 42}}
+    results = [tournament_points(tournament) for tournament in tournament_results]
+
+    # get list of all events in case events differ between tournaments
+    # shouldn't be the case for ncifl but whatever.
+    events = set()
+    for result in results:
+        for event in result.keys():
+            events.add(event)
+
+    all_results = dict(zip(events, [{} for i in xrange(len(events))]))
+    for result in results:
+        for event in result:
+            # combine with the results from this tournament
+            for school in result[event]:
+                try:
+                    all_results[event][school] += result[event][school]
+                except KeyError:
+                    all_results[event][school] = result[event][school]
+
+    print_ordered(all_results)
+
+    totals = {}
+    for event in all_results:
+        for school in all_results[event]:
+            try:
+                totals[school] += all_results[event][school]
+            except KeyError:
+                totals[school] = all_results[event][school]
+
+    rank = 1
+    for score in sort_dict_by_val(totals):
+        print rank, score
+        rank += 1
+                
+
+if __name__ == '__main__':
+    print "Cal Poly 2014\n"
+    aggregate_points(['2014/CalPoly.csv'])
+
+    print 
+
+    aggregate_points(['2014/Berkeley.csv', '2014/CalPoly.csv'])
